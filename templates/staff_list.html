@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Staff List</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Bootstrap & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: #f2f6fc;
+      font-family: 'Segoe UI', sans-serif;
+      padding-top: 30px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #0d6efd;
+      font-weight: bold;
+      font-size: 28px;
+      font-family: Georgia, 'Times New Roman', Times, serif;
+    }
+
+    .card {
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+    }
+
+    .card-body {
+      font-size: 18px;
+      font-family: Georgia, 'Times New Roman', Times, serif;
+    }
+
+    .staff-label {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .staff-value {
+      color: #555;
+    }
+
+    .btn-group-sm {
+      margin-top: 15px;
+    }
+
+    .top-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="page-header"><i class="bi bi-person-lines-fill"></i> All Staff</div>
+
+    <div class="top-actions">
+      <a href="{{ url_for('auth.admin_dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left-circle"></i> Dashboard
+      </a>
+      <a href="{{ url_for('auth.add_staff') }}" class="btn btn-outline-success">
+        <i class="bi bi-person-plus-fill"></i> Add Staff
+      </a>
+        <!-- 🔄 Toggle Active/Deactivated -->
+        <a href="{{ url_for('auth.staff_list', show_inactive='false' if show_inactive else 'true') }}" class="btn btn-warning">
+          {% if show_inactive %}
+            🔙 Show Active Only
+          {% else %}
+            🟡 View Deactivated Users
+          {% endif %}
+        </a>
+      </div>
+
+   {% if session['role'] == 'admin' %}
+      <form method="GET" class="row row-cols-1 row-cols-md-2 g-3 align-items-end mb-4 justify-content-center">
+
+        <div class="col-md-4">
+          <label for="department" class="form-label fw-semibold">Department</label>
+          <select name="department" id="department" class="form-select shadow-sm" onchange="this.form.submit()">
+            <option value="">All Departments</option>
+            {% for dept in departments %}
+              <option value="{{ dept }}" {% if selected_dept == dept %}selected{% endif %}>{{ dept }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label for="role" class="form-label fw-semibold">Role</label>
+          <select name="role" id="role" class="form-select shadow-sm" onchange="this.form.submit()">
+            <option value="">All Roles</option>
+            {% for r in roles %}
+              <option value="{{ r }}" {% if selected_role == r %}selected{% endif %}>{{ r.capitalize() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+      </form>
+      {% endif %}
+
+
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="row justify-content-center mb-3">
+      <div class="col-md-8">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show text-center" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+{% endwith %}
+
+    {% if doctors %}
+      <h4 class="section-heading"><i class="bi bi-person-badge-fill"></i> Doctors</h4>
+      <div class="row">
+        {% for doctor in doctors %}
+        <div class="col-md-6 col-lg-4 mb-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title text-primary">
+                <i class="bi bi-person-circle"></i> {{ doctor.full_name }}
+                {% if not doctor.is_active %}
+                  <span class="badge bg-warning text-dark ms-2">🟡 Deactivated</span>
+                {% endif %}
+              </h5>
+              <p><span class="staff-label">Username:</span> <span class="staff-value">{{ doctor.username }}</span></p>
+              <p><span class="staff-label">Email:</span> <span class="staff-value">{{ doctor.email }}</span></p>
+              <p><span class="staff-label">Department:</span> <span class="staff-value">{{ doctor.department.name }}</span></p>
+              <p><span class="staff-label">Role:</span> <span class="staff-value text-capitalize">{{ doctor.role }}</span></p>
+              <p><span class="staff-label">Last Login:</span> <span class="staff-value">{{ doctor.last_login or "Never" }}</span></p>
+              <p><span class="staff-label">Password Changed:</span> <span class="staff-value">{{ doctor.last_password_change or "Never" }}</span></p>
+             <div class="btn-group-sm d-flex gap-2 justify-content-end">
+                <a href="{{ url_for('auth.edit_staff', staff_id=doctor.id) }}" class="btn btn-warning btn-sm">
+                  <i class="bi bi-pencil-square"></i> Edit
+                </a>
+
+                {% if doctor.is_active %}
+                <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                        data-bs-target="#confirmDeleteModal"
+                        data-staff-id="{{ doctor.id }}"
+                        data-staff-name="{{ doctor.full_name }}">
+                  <i class="bi bi-trash"></i> Delete
+                </button>
+                {% else %}
+                 <button class="btn btn-success btn-sm" data-bs-toggle="modal"
+                          data-bs-target="#confirmReactivateModal"
+                          data-staff-id="{{ doctor.id }}"
+                          data-staff-name="{{ doctor.full_name }}">
+                    <i class="bi bi-arrow-clockwise"></i> Reactivate
+                  </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- 🗑️ Delete Confirmation Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="confirmDeleteLabel"><i class="bi bi-exclamation-triangle-fill"></i> Confirm Deletion</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete <strong id="staffNamePlaceholder"></strong>?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <a id="confirmDeleteBtn" href="#" class="btn btn-danger">Yes, Delete</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🔄 Reactivate Confirmation Modal -->
+<div class="modal fade" id="confirmReactivateModal" tabindex="-1" aria-labelledby="confirmReactivateLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-success">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="confirmReactivateLabel"><i class="bi bi-check-circle-fill"></i> Confirm Reactivation</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to reactivate <strong id="reactivateStaffNamePlaceholder"></strong>?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <a id="confirmReactivateBtn" href="#" class="btn btn-success">Yes, Reactivate</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% if staff_list %}
+    <h4 class="section-heading text-primary"><i class="bi bi-person-badge"></i> Staff</h4>
+    <div class="row">
+      {% for staff in staff_list %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title text-primary">
+                <i class="bi bi-person-circle"></i> {{ staff.full_name }}
+                {% if not staff.is_active %}
+                  <span class="badge bg-warning text-dark ms-2">🟡 Deactivated</span>
+                {% endif %}
+              </h5>
+            <p><span class="staff-label">Username:</span> <span class="staff-value">{{ staff.username }}</span></p>
+            <p><span class="staff-label">Email:</span> <span class="staff-value">{{ staff.email }}</span></p>
+            <p><span class="staff-label">Department:</span> <span class="staff-value">{{ staff.department.name }}</span></p>
+            <p><span class="staff-label">Role:</span> <span class="staff-value text-capitalize">{{ staff.role }}</span></p>
+            <p><span class="staff-label">Last Login:</span> <span class="staff-value">{{ staff.last_login or "Never" }}</span></p>
+            <p><span class="staff-label">Password Changed:</span> <span class="staff-value">{{ staff.last_password_change or "Never" }}</span></p>
+           <div class="btn-group-sm d-flex gap-2 justify-content-end">
+              <a href="{{ url_for('auth.edit_staff', staff_id=staff.id) }}" class="btn btn-warning btn-sm">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+
+              {% if staff.is_active %}
+                <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-staff-id="{{ staff.id }}" data-staff-name="{{ staff.full_name }}">
+                  <i class="bi bi-trash"></i> Delete
+                </button>
+              {% else %}
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal"
+                        data-bs-target="#confirmReactivateModal"
+                        data-staff-id="{{ staff.id }}"
+                        data-staff-name="{{ staff.full_name }}">
+                  <i class="bi bi-arrow-clockwise"></i> Reactivate
+                </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+{% if admins %}
+  <h4 class="section-heading text-primary"><i class="bi bi-shield-lock-fill"></i> Admins</h4>
+  <div class="row">
+    {% for admin in admins %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title text-primary">
+              <i class="bi bi-person-circle"></i> {{ admin.full_name }}
+              {% if not admin.is_active %}
+                <span class="badge bg-warning text-dark ms-2">🟡 Deactivated</span>
+              {% endif %}
+            </h5>
+            <p><span class="staff-label">Username:</span> <span class="staff-value">{{ admin.username }}</span></p>
+            <p><span class="staff-label">Email:</span> <span class="staff-value">{{ admin.email }}</span></p>
+            <p><span class="staff-label">Department:</span> <span class="staff-value">{{ admin.department.name }}</span></p>
+            <p><span class="staff-label">Role:</span> <span class="staff-value text-capitalize">{{ admin.role }}</span></p>
+            <p><span class="staff-label">Last Login:</span> <span class="staff-value">{{ admin.last_login or "Never" }}</span></p>
+            <p><span class="staff-label">Password Changed:</span> <span class="staff-value">{{ admin.last_password_change or "Never" }}</span></p>
+            <div class="btn-group-sm d-flex gap-2 justify-content-end">
+              <a href="{{ url_for('auth.edit_staff', staff_id=admin.id) }}" class="btn btn-warning btn-sm">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+              {% if admin.is_active %}
+                <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
+                        data-staff-id="{{ admin.id }}" data-staff-name="{{ admin.full_name }}">
+                  <i class="bi bi-trash"></i> Delete
+                </button>
+              {% else %}
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#confirmReactivateModal"
+                        data-staff-id="{{ admin.id }}" data-staff-name="{{ admin.full_name }}">
+                  <i class="bi bi-arrow-clockwise"></i> Reactivate
+                </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+<script>
+  setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(alert => {
+      bootstrap.Alert.getOrCreateInstance(alert).close();
+    });
+  }, 5000);  // Close after 5 seconds
+</script>
+
+<script>
+  const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+  confirmDeleteModal.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const staffId = button.getAttribute('data-staff-id');
+    const staffName = button.getAttribute('data-staff-name');
+
+    const confirmBtn = confirmDeleteModal.querySelector('#confirmDeleteBtn');
+    const namePlaceholder = confirmDeleteModal.querySelector('#staffNamePlaceholder');
+
+    confirmBtn.href = `/delete_staff/${staffId}`;
+    namePlaceholder.textContent = staffName;
+  });
+</script>
+
+<script>
+  const confirmReactivateModal = document.getElementById('confirmReactivateModal');
+  confirmReactivateModal.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const staffId = button.getAttribute('data-staff-id');
+    const staffName = button.getAttribute('data-staff-name');
+
+    const confirmBtn = confirmReactivateModal.querySelector('#confirmReactivateBtn');
+    const namePlaceholder = confirmReactivateModal.querySelector('#reactivateStaffNamePlaceholder');
+
+    confirmBtn.href = `/reactivate_staff/${staffId}`;
+    namePlaceholder.textContent = staffName;
+  });
+</script>
+
+
+</html>
